@@ -1,0 +1,279 @@
+<html>
+<head>
+<title>
+dpfSound classes
+</title>
+<link rev="made" href="mailto:pape@evl.uic.edu">
+</head>
+
+<body>
+<h1>dpfSound classes</h1>
+<h3>(part of the <a href="dpf.html">DPF</a> library)</h3>
+
+<h2> Examples </h2>
+
+To simply play a sound file, use the basic <a href="#dpfSound">dpfSound</a> class, along
+with a <a href="#dpfSoundServer">dpfSoundServer</a>:
+<pre>
+	#include "dpfSound.h"
+	/* First, connect to the server and create a sound object */
+	  dpfSoundServer *vss = new dpfSoundServer;
+	  dpfSound *sample = new dpfSound(vss,"sound.aiff");
+
+	/* ... Play the sound */
+	  sample->play();
+
+	/* Before exiting the program, disconnect from the server */
+	  vss->kill();
+</pre>
+
+To create a localized sound, use the <a href="#dpfLocalSound">dpfLocalSound</a> class and place
+the node in the scene graph:
+<pre>
+	#include "dpfLocalSound.h"
+	/* First, connect to the server and create a sound object */
+	  dpfSoundServer *vss = new dpfSoundServer;
+	  dpfLocalSound *sample = new dpfSound(vss,"sound.aiff",5.0);
+	  sample->setMaxDistance(20.0);
+	  parentGroup->addChild(sample);
+
+	/* ... Play the sound */
+	  sample->play();
+	/* (The amplitude will be automatically updated each frame) */
+
+	/* Before exiting the program, disconnect from the server */
+	  vss->kill();
+</pre>
+
+The header files are found in ~pape/include/.  The classes are in the
+library ~pape/lib/libdpf.a.
+
+
+<a name="dpfSound">
+<h2> dpfSound </h2>
+
+Generic sound sample object. dpfSound is a subclass of pfGroup.
+<p>
+A dpfSound has a SampleActor and one or more AIFF files associated with it;
+when the <i>play()</i> function is called, one of the sound files is randomly
+selected and started.
+<p>
+A dpfSound requires a pointer to a dpfSoundServer, which must be passed
+to the constructor.  The sound server object manages the connection to
+vss and all the sound objects.  A program should create a single dpfSoundServer
+when it starts, and use this for all of its dpfSounds.
+<p>
+Other attributes of a dpfSound, besides the AIFF files and the sound server,
+are the amplitude, directory, and looping flag.  The amplitude is the volume
+at which the sound files will be played, in the range [0,1]; the default is 1.
+The directory is the name of the directory on the machine running vss where the
+sound files can be found; if one is not given, the dpfSoundServer's default
+directory will be used.  The looping flag indicates whether sounds should be
+repeated indefinitely when played, or just played once; the default is off
+(no looping).
+
+<p>
+<h3>Interface:</h3>
+<i>#include "dpfSound.h"</i>
+<p>
+<dl>
+<dt><i>dpfSound::dpfSound(dpfSoundServer *server,char *file=NULL,float duration=0,float amplitude=1)</i>
+<dd> dpfSound constructor.  <i>server</i> is a pointer to the sound server object
+  which manages the connection to vss.
+  <i>file</i> is the name of an AIFF file that the sound object will play,
+  <i>duration</i> is the length of the sound sample in seconds,
+  <i>amplitude</i> is the amplitude to play it at.
+  <i>file</i>, <i>duration</i>, and <i>amplitude</i> are optional; they may be given
+  later using <i>addFile()</i> and <i>setAmplitude()</i>.
+<dt><i>void dpfSound::play(void)</i>
+<dd> Starts playing the sound.  If more than one file has been given via <i>addFile()</i>,
+  one of the files is selected at random for playing.
+<dt><i>void dpfSound::stop(void)</i>
+<dd> Stops playing the sound.  The A_EndAllNotes message is used, so if <i>play()</i> has
+  been called multiple times, all the sounds that the dpfSound is playing will be stopped.
+<dt><i>void dpfSound::addFile(char *filename,float duration=0.0f)</i>
+<dd> Gives the name of an AIFF file for the sound object to play.  The file name is
+  added to a list of samples to pick from when <i>play()</i> is called.
+  <i>duration</i> is the length of the sound file in seconds; it is not used by the
+  basic dpfSound class, but is needed by the dpfLocalSound class for its automatic
+  updates.
+<dt><i>void dpfSound::setAmplitude(float v)</i>
+<dd> Sets the amplitude at which the sound file(s) will be played.  <i>v</i> should be
+  between 0 and 1.
+<dt><i>void dpfSound::setDirectory(char *dir)</i>
+<dd> Sets the directory for the dpfSound's actor; this is where the AIFF sample files
+  should be found.
+<dt><i>float dpfSound::setLoop(int loop=1)</i>
+<dd> Sets the looping flag.  If the flag is on, all sounds which are started by <i>play()</i>
+  will loop indefinitely; otherwise, they will just play once.
+<dt><i>void dpfSound::amplitude(void)</i>
+<dd> Returns the amplitude of the sound.
+<dt><i>char * dpfSound::directory(void)</i>
+<dd> Returns the directory being used by the SampleActor.
+<dt><i>int dpfSound::loop(void)</i>
+<dd> Returns the current value of the looping flag.
+<dt><i>void dpfSound::kill(void)</i>
+<dd> Stops playing any sounds, and deletes the vss SampleActor being used by the
+  dpfSound.  This is intended primarily for use by the dpfSoundServer, when exiting
+  or resetting the connection to vss.
+<dt><i>void dpfSound::restart(void)</i>
+<dd> Creates a new SampleActor.  If a sound was playing, with looping enabled, when the
+  dpfSound was previously <i>kill()</i>ed, <i>play()</i> will be called to restart the
+  sound.  This is intended primarily for use by the dpfSoundServer, when
+  resetting the connection to vss.
+<dt><i>static void dpfSound::stopSoundsInTree(pfNode *root)</i>
+<dd> Class function which will stop all the sounds in a scene sub-graph.
+  The sub-graph rooted at <i>root</i> is traversed; for every dpfSound
+  node which is found, a <i>stop()</i> command is issued.
+</dl>
+
+
+<p>
+
+
+<a name="dpfSoundServer">
+<h2> dpfSoundServer </h2>
+
+The dpfSoundServer class represents a connection to the sound server (vss).
+Each dpfSound object that is created needs a pointer to the server object.
+The server object keeps track of whether it is connected to vss, has a
+default directory for sounds to use, and keeps a list of all the sounds
+which have been created (to make cleanup simpler).
+<p>
+When a program exits, it merely needs to call <i>dpfSoundServer::kill()</i>
+(or delete the sound server object); this will automatically <i>kill()</i> all the
+dpfSound objects, stopping any sounds they are playing and deleting their
+actors.
+<p>
+A program can reset its connection to vss at any time by calling
+<i>dpfSoundServer::connect()</i>.  This will <i>kill()</i> any existing connection,
+open a new connection, and <i>restart</i> all existing dpfSounds.
+This feature makes it possible to re-initialize an application's audio
+(in the event of a vss problem) without exiting and restarting the entire program.
+<p>
+An application which uses a dpfSoundServer should not call <i>BeginSoundServer()</i>
+or <i>EndSoundServer()</i> itself; they are called by the <i>connect()</i>
+and <i>kill()</i> functions.
+
+
+<p>
+<h3>Interface:</h3>
+<i>#include "dpfSound.h"</i>
+<p>
+<dl>
+<dt><i>dpfSoundServer::dpfSoundServer(int doconnect=1)</i>
+<dd> dpfSoundServer constructor.  If <i>doconnect</i> is true, <i>connect()</i> will
+  be called when the object is created.
+<dt><i>void dpfSoundServer::connect(void)</i>
+<dd> Initializes a connection to vss.  If there is an existing connection already,
+  <i>kill()</i> will be automatically called first.  The connection is created via
+  <i>BeginSoundServer()</i>.  If this succeeds, <i>restart()</i> will be called for
+  all existing dpfSound's (allowing them to create new actors, and resume sounds
+  which were suspended).
+<dt><i>int dpfSoundServer::isConnected(void)</i>
+<dd> Returns true or false, indicating whether a connection to vss exists
+  (i.e. whether <i>BeginSoundServer()</i> has been called successfully).
+<dt><i>void dpfSoundServer::setDefaultDirectory(char *dir)</i>
+<dd> Sets a default directory for dpfSounds to use if no directory is set for
+  them directly by <i>dpfSound::setDirectory()</i>.  A private copy of the
+  string <i>dir</i> is made.
+<dt><i>char * dpfSoundServer::defaultDirectory(void)</i>
+<dd> Returns the default directory given to <i>setDefaultDirectory()</i>.
+<dt><i>void dpfSoundServer::stopAllSounds(void)</i>
+<dd> Calls <i>dpfSound::stop()</i> for all existing sounds.
+<dt><i>void dpfSoundServer::kill(void)</i>
+<dd> Shuts down the connection to vss, if one exists.  <i>dpfSound::kill()</i> is
+  called for all existing sounds, and then <i>EndSoundServer()</i> is called.
+<dt><i>void dpfSoundServer::addSound(dpfSound *sound)</i>
+<dd> Adds <i>sound</i> to the sound server's list of existing sounds.  This function
+  is called by the dpfSound constructor, and should not be called directly by an
+  application.
+</dl>
+
+<p>
+
+
+
+
+
+<a name="dpfLocalSound">
+<h2> dpfLocalSound </h2>
+
+Localized sound sample object. dpfLocalSound is a subclass of dpfSound.
+<p>
+A dpfLocalSound is a dpfSound which occupies a specific volume in space.
+It is placed in a scene by adding it to the scene graph.
+When a dpfLocalSound is playing, its APP-stage callback automatically
+updates the amplitude of the sound based on the CAVE user's position.
+If the user is inside the sound's volume, it plays at full amplitude;
+as the user moves away, the amplitude drops to zero.
+By default, a dpfLocalSound is a point source; however, a sound can also
+be defined to fill a spherical, cylindrical, or boxical volume, using
+the dpfVolume classes (this is useful for creating a background sound that
+fills an entire room, for example).
+The amplitude falloff is proportional to the
+distance from the user to the sound, up to a specified maximum distance, at
+which the amplitude is 0.
+<p>
+One subtle difference between the dpfLocalSound and dpfSound classes is in
+the behaviour of <i>play()</i> when called repeatedly.  With a generic dpfSound,
+every time <i>play()</i> is called, a new note is started; this can result in
+several instances of the sound playing at once.  With a dpfLocalSound, only
+one note is allowed to be actively playing at a time; if <i>play()</i> is called
+while a note is active, it is ignored.  dpfLocalSound uses the duration specified
+for each AIFF file (passed to <i>addFile()</i> or the constructor) to determine
+if a note is still playing; when the file's duration has passed, <i>stop()</i> is
+automatically called (assuming looping is not enabled).
+<p>
+For a dpfLocalSound to work properly, it must be placed in the scene graph,
+and an accurate duration must be given for each sound file.
+
+<p>
+<h3>Interface (additions to dpfSound interface):</h3>
+<i>#include "dpfLocalSound.h"</i>
+<p>
+<dl>
+<dt><i>dpfLocalSound::dpfLocalSound(dpfSoundServer *server,char *file=NULL,float duration=0,float amplitude=1)</i>
+<dd> dpfLocalSound constructor.  <i>server</i> is a pointer to the sound server object
+  which manages the connection to vss.
+  <i>file</i> is the name of an AIFF file that the sound object will play,
+  <i>duration</i> is the length of the sound sample in seconds,
+  <i>amplitude</i> is the amplitude to play it at.
+  <i>file</i>, <i>duration</i>, and <i>amplitude</i> are optional; they may be given
+  later using <i>dpfSound::addFile()</i> and <i>dpfSound::setAmplitude()</i>.
+<dt><i>void dpfLocalSound::setVolume(dpfVolume *v)</i>
+<dd> Sets the volume that the sound occupies.  When the user's head is inside the
+  volume, the sound will play at maximum amplitude (that set by
+  <i>dpfSound::setAmplitude()</i>); outside the volume, the amplitude depends on
+  the user's distance, and the maximum distance set for the sound.
+  If <i>v</i> is NULL, the sound is treated as a point source located at (0,0,0).
+<dt><i>void dpfLocalSound::setMaxDistance(float d)</i>
+<dd> Sets the maximum distance to use in computing the sound's amplitude.  When
+  the user's head is <i>d</i> units or farther from the sound's volume, the amplitude
+  is 0.  If <i>d</i> is negative, the sound will no longer be localized, and will
+  play at full amplitude independent of the user's position.
+  The default maximum distance is 10.
+<dt><i>dpfVolume * dpfLocalSound::volume(void)</i>
+<dd> Returns the volume given to <i>setVolume()</i>, or NULL if none has been set.
+<dt><i>float dpfLocalSound::maxDistance(void)</i>
+<dd> Returns the maximum distance given to <i>setMaxDistance()</i>.
+<dt><i>int dpfLocalSound::isPlaying(void)</i>
+<dd> Returns true or false, depending on whether a sound file is currently playing.
+  If the dpfLocalSound has no actor (which is the case when the sound server is
+  not connected), this will be false.
+</dl>
+
+
+
+<p>
+
+
+<p><hr>
+
+Last modified 21 April 1997.
+<address>
+<a href=http://www.evl.uic.edu/pape/>Dave Pape</a>, pape@evl.uic.edu
+</address>
+
+</body>
+</html>
